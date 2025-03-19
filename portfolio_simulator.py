@@ -32,35 +32,42 @@ def run_portfolio_simulation(start_value, stock_allocation, bond_allocation,
     return portfolio_values[:, -1]
 
 def plot_distribution(ending_values):
-    """Plots the distribution of ending portfolio values in The Economist style."""
-    plt.style.use('seaborn-v0_8-darkgrid')  # Using a seaborn style as a base
+    """Plots the distribution of ending portfolio values in McKinsey style."""
+    plt.style.use('default')  # Reset to default style
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.histplot(ending_values, kde=False, ax=ax, color='#1a535c', edgecolor='white')
-
-    # Customize appearance for Economist style
-    ax.set_xlabel('Ending Portfolio Value', fontsize=12, fontweight='bold', color='#37474f')
-    ax.set_ylabel('Number of Simulations', fontsize=12, fontweight='bold', color='#37474f')
-    ax.set_title('Distribution of Ending Portfolio Values', fontsize=14, fontweight='bold', color='#37474f')
+    
+    # Calculate histogram counts and bins
+    counts, bins = np.histogram(ending_values, bins=50)  # Adjust number of bins as needed
+    
+    # Create a bar plot using the histogram data
+    bar_width = (bins[1] - bins[0]) * 0.8  # Reduce width for gaps
+    ax.bar(bins[:-1], counts, width=bar_width, color='#00509d', edgecolor='white', linewidth=0.5)  # McKinsey blue
+    
+    # Customize appearance for McKinsey style
+    ax.set_xlabel('Ending Portfolio Value', fontsize=12, fontweight='bold', color='#555555')  # Darker gray
+    ax.set_ylabel('Number of Simulations', fontsize=12, fontweight='bold', color='#555555')
+    ax.set_title('Distribution of Ending Portfolio Values', fontsize=14, fontweight='bold', color='#333333')  # Darker title
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_color('#37474f')
-    ax.spines['bottom'].set_color('#37474f')
+    ax.spines['left'].set_color('#cccccc')  # Light gray axis lines
+    ax.spines['bottom'].set_color('#cccccc')
 
-    ax.tick_params(axis='x', colors='#37474f', labelsize=10)
-    ax.tick_params(axis='y', colors='#37474f', labelsize=10)
+    ax.tick_params(axis='x', colors='#555555', labelsize=10)
+    ax.tick_params(axis='y', colors='#555555', labelsize=10)
+    ax.yaxis.grid(False)  # Remove y-axis gridlines
 
-    # Add median and percentile lines (optional, for visual reference)
+    # Add median and percentile lines with more subtle styling
     median_val = np.median(ending_values)
     percentile_10 = np.percentile(ending_values, 10)
     percentile_90 = np.percentile(ending_values, 90)
 
-    ax.axvline(median_val, color='#ef5350', linestyle='--', linewidth=1.5, label=f'Median: ₹{median_val:,.2f}')
-    ax.axvline(percentile_10, color='#5c6bc0', linestyle=':', linewidth=1.5, label=f'10th Pctl: ₹{percentile_10:,.2f}')
-    ax.axvline(percentile_90, color='#5c6bc0', linestyle=':', linewidth=1.5, label=f'90th Pctl: ₹{percentile_90:,.2f}')
+    ax.axvline(median_val, color='#d9534f', linestyle='-', linewidth=1, label=f'Median: ₹{median_val:,.2f}')  # Red, solid line
+    ax.axvline(percentile_10, color='#5bc0de', linestyle='--', linewidth=1, label=f'10th Pctl: ₹{percentile_10:,.2f}')  # Cyan, dashed
+    ax.axvline(percentile_90, color='#5bc0de', linestyle='--', linewidth=1, label=f'90th Pctl: ₹{percentile_90:,.2f}')
 
-    ax.legend(fontsize=10)
+    ax.legend(fontsize=10, frameon=False)  # Remove legend frame
     plt.tight_layout()
     return fig
 
