@@ -1,9 +1,9 @@
+import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import norm
-import streamlit as st
 
 # --- Helper Functions ---
 
@@ -32,113 +32,177 @@ def run_portfolio_simulation(start_value, stock_allocation, bond_allocation,
     return portfolio_values[:, -1]
 
 def plot_distribution(ending_values):
-    """Plots the distribution of ending portfolio values in McKinsey style."""
-    plt.style.use('default')  # Reset to default style
-
-    fig, ax = plt.subplots(figsize=(10, 6))
+    """Plots the distribution of ending portfolio values in The Economist style."""
+    # Set the style to a clean, minimal base
+    plt.style.use('seaborn-v0_8-whitegrid')
     
-    # Calculate histogram counts and bins
-    counts, bins = np.histogram(ending_values, bins=50)  # Adjust number of bins as needed
+    # Create figure and axis with specific size
+    fig, ax = plt.subplots(figsize=(12, 7))
     
-    # Create a bar plot using the histogram data
-    bar_width = (bins[1] - bins[0]) * 0.8  # Reduce width for gaps
-    ax.bar(bins[:-1], counts, width=bar_width, color='#00509d', edgecolor='white', linewidth=0.5)  # McKinsey blue
+    # Calculate histogram data
+    counts, bins, _ = ax.hist(ending_values, bins=50, density=True, alpha=0)
     
-    # Customize appearance for McKinsey style
-    ax.set_xlabel('Ending Portfolio Value', fontsize=12, fontweight='bold', color='#555555')  # Darker gray
-    ax.set_ylabel('Number of Simulations', fontsize=12, fontweight='bold', color='#555555')
-    ax.set_title('Distribution of Ending Portfolio Values', fontsize=14, fontweight='bold', color='#333333')  # Darker title
-
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_color('#cccccc')  # Light gray axis lines
-    ax.spines['bottom'].set_color('#cccccc')
-
-    ax.tick_params(axis='x', colors='#555555', labelsize=10)
-    ax.tick_params(axis='y', colors='#555555', labelsize=10)
-    ax.yaxis.grid(False)  # Remove y-axis gridlines
-
-    # Add median and percentile lines with more subtle styling
+    # Create filled distribution curve
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+    ax.fill_between(bin_centers, counts, alpha=0.6, color='#246B9C', label='Distribution')
+    ax.plot(bin_centers, counts, color='#246B9C', linewidth=2)
+    
+    # Calculate and plot key statistics
     median_val = np.median(ending_values)
     percentile_10 = np.percentile(ending_values, 10)
     percentile_90 = np.percentile(ending_values, 90)
-
-    ax.axvline(median_val, color='#d9534f', linestyle='-', linewidth=1, label=f'Median: ₹{median_val:,.2f}')  # Red, solid line
-    ax.axvline(percentile_10, color='#5bc0de', linestyle='--', linewidth=1, label=f'10th Pctl: ₹{percentile_10:,.2f}')  # Cyan, dashed
-    ax.axvline(percentile_90, color='#5bc0de', linestyle='--', linewidth=1, label=f'90th Pctl: ₹{percentile_90:,.2f}')
-
-    ax.legend(fontsize=10, frameon=False)  # Remove legend frame
+    
+    # Add vertical lines for statistics
+    ax.axvline(median_val, color='#E3120B', linestyle='-', linewidth=2, 
+               label=f'Median: ₹{median_val:,.0f}')
+    ax.axvline(percentile_10, color='#767676', linestyle='--', linewidth=1.5, 
+               label=f'10th percentile: ₹{percentile_10:,.0f}')
+    ax.axvline(percentile_90, color='#767676', linestyle='--', linewidth=1.5, 
+               label=f'90th percentile: ₹{percentile_90:,.0f}')
+    
+    # Customize appearance
+    ax.set_title('Distribution of Portfolio Values at Target Age', 
+                fontsize=16, fontweight='bold', pad=20, 
+                fontfamily='sans-serif', color='#2f2f2f')
+    
+    ax.set_xlabel('Portfolio Value (₹)', fontsize=12, fontfamily='sans-serif', 
+                 color='#2f2f2f', labelpad=10)
+    ax.set_ylabel('Probability Density', fontsize=12, fontfamily='sans-serif', 
+                 color='#2f2f2f', labelpad=10)
+    
+    # Format x-axis with comma separator for thousands
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'₹{x:,.0f}'))
+    plt.xticks(rotation=45)
+    
+    # Customize grid
+    ax.grid(True, axis='y', linestyle='--', alpha=0.7, color='#cccccc')
+    ax.grid(False, axis='x')
+    
+    # Customize spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#767676')
+    ax.spines['bottom'].set_color('#767676')
+    
+    # Customize ticks
+    ax.tick_params(axis='both', colors='#767676', labelsize=10)
+    
+    # Add legend with custom styling
+    legend = ax.legend(frameon=True, facecolor='white', framealpha=1, 
+                      edgecolor='#cccccc', fontsize=10)
+    for text in legend.get_texts():
+        text.set_color('#2f2f2f')
+    
+    # Add explanatory text
+    text_y_pos = ax.get_ylim()[1] * 0.95
+    ax.text(percentile_10, text_y_pos, '10% chance of\nlower value',
+            color='#767676', fontsize=9, ha='right', va='top')
+    ax.text(percentile_90, text_y_pos, '10% chance of\nhigher value',
+            color='#767676', fontsize=9, ha='left', va='top')
+    
+    # Adjust layout
     plt.tight_layout()
     return fig
 
-# --- Streamlit App ---
+# Streamlit UI
+st.set_page_config(page_title="Portfolio Simulator", layout="wide")
 
-st.title("Portfolio Simulator")
-st.markdown("Run Monte Carlo simulations to estimate your portfolio's future value.")
+st.title("Portfolio Growth Simulator")
+st.write("""
+This tool simulates potential portfolio growth using Monte Carlo simulation. 
+Adjust the parameters below to see how different scenarios might affect your investment outcomes.
+""")
 
-# --- Input Section ---
-st.sidebar.header("Simulation Parameters")
+# Sidebar for inputs
+with st.sidebar:
+    st.header("Portfolio Parameters")
+    
+    start_value = st.number_input("Starting Portfolio Value (₹)", 
+                                 min_value=1.0, 
+                                 value=1000000.0, 
+                                 step=100000.0,
+                                 format="%.2f")
+    
+    start_age = st.number_input("Current Age", 
+                               min_value=18, 
+                               max_value=80, 
+                               value=30)
+    
+    target_age = st.number_input("Target Age", 
+                                min_value=start_age + 1, 
+                                max_value=100, 
+                                value=60)
+    
+    stock_percentage = st.slider("Stock Allocation (%)", 
+                               min_value=0, 
+                               max_value=100, 
+                               value=70)
+    
+    st.header("Return Assumptions")
+    stock_min_return = st.slider("Minimum Stock Return (%)", 
+                                min_value=-25.0, 
+                                max_value=25.0, 
+                                value=5.0) / 100.0
+    
+    stock_max_return = st.slider("Maximum Stock Return (%)", 
+                                min_value=float(stock_min_return * 100 + 1), 
+                                max_value=25.0, 
+                                value=12.0) / 100.0
+    
+    bond_min_return = st.slider("Minimum Bond Return (%)", 
+                                min_value=-5.0, 
+                                max_value=10.0, 
+                                value=1.0) / 100.0
+    
+    bond_max_return = st.slider("Maximum Bond Return (%)", 
+                                min_value=float(bond_min_return * 100 + 1), 
+                                max_value=15.0, 
+                                value=5.0) / 100.0
+    
+    num_simulations = st.slider("Number of Simulations", 
+                               min_value=1000, 
+                               max_value=20000, 
+                               value=10000)
 
-start_value = st.sidebar.number_input("Starting Portfolio Value (₹)", min_value=1.0, value=1000000.00, step=10000.00, format="%.2f")
-start_age = st.sidebar.number_input("Starting Age", min_value=18, max_value=100, value=30, step=1)
-target_age = st.sidebar.number_input("Calculate Portfolio Value At Age", min_value=start_age + 1, max_value=120, value=60, step=1)
-num_simulations = st.sidebar.number_input("Number of Simulations", min_value=100, max_value=100000, value=10000, step=1000)
-
-st.sidebar.subheader("Asset Allocation")
-stock_percentage = st.sidebar.slider("Percentage in Stocks (%)", 0, 100, 70)
+# Calculate parameters
 bond_percentage = 100 - stock_percentage
-st.sidebar.write(f"Percentage in Bonds: {bond_percentage}%")
-
-st.sidebar.subheader("Expected Return Ranges (%)")
-stock_min_return_percent = st.sidebar.text_input("Minimum Expected Stock Return (%)", "5")
-stock_max_return_percent = st.sidebar.text_input("Maximum Expected Stock Return (%)", "12")
-bond_min_return_percent = st.sidebar.text_input("Minimum Expected Bond Return (%)", "1")
-bond_max_return_percent = st.sidebar.text_input("Maximum Expected Bond Return (%)", "5")
-
 num_years = target_age - start_age
 
-if st.button("Run Simulation"):
-    if num_years <= 0:
-        st.error("Target age must be greater than starting age.")
-    try:
-        stock_min_return = float(stock_min_return_percent) / 100
-        stock_max_return = float(stock_max_return_percent) / 100
-        bond_min_return = float(bond_min_return_percent) / 100
-        bond_max_return = float(bond_max_return_percent) / 100
+# Run simulation
+ending_portfolio_values = run_portfolio_simulation(
+    start_value,
+    stock_percentage / 100,
+    bond_percentage / 100,
+    stock_min_return,
+    stock_max_return,
+    bond_min_return,
+    bond_max_return,
+    num_simulations,
+    num_years
+)
 
-        if stock_min_return >= stock_max_return or bond_min_return >= bond_max_return:
-            st.error("Minimum expected return must be less than the maximum expected return for both stocks and bonds.")
-        else:
-            with st.spinner("Running simulations..."):
-                ending_portfolio_values = run_portfolio_simulation(
-                    start_value,
-                    stock_percentage / 100,
-                    bond_percentage / 100,
-                    stock_min_return,
-                    stock_max_return,
-                    bond_min_return,
-                    bond_max_return,
-                    num_simulations,
-                    num_years
-                )
+# Display results
+col1, col2 = st.columns([2, 1])
 
-            st.subheader("Simulation Results")
+with col1:
+    st.pyplot(plot_distribution(ending_portfolio_values))
 
-            avg_ending_value = np.mean(ending_portfolio_values)
-            median_ending_value = np.median(ending_portfolio_values)
-            percentile_10 = np.percentile(ending_portfolio_values, 10)
-            percentile_90 = np.percentile(ending_portfolio_values, 90)
+with col2:
+    st.header("Simulation Results")
+    
+    avg_ending_value = np.mean(ending_portfolio_values)
+    median_ending_value = np.median(ending_portfolio_values)
+    percentile_10 = np.percentile(ending_portfolio_values, 10)
+    percentile_90 = np.percentile(ending_portfolio_values, 90)
+    
+    st.metric("Average Ending Value", f"₹{avg_ending_value:,.2f}")
+    st.metric("Median Ending Value", f"₹{median_ending_value:,.2f}")
+    st.metric("10th Percentile", f"₹{percentile_10:,.2f}")
+    st.metric("90th Percentile", f"₹{percentile_90:,.2f}")
 
-            st.markdown(f"**Average Ending Value:** ₹{avg_ending_value:,.2f}")
-            st.markdown(f"**Median Ending Value:** ₹{median_ending_value:,.2f}")
-            st.markdown(f"**10th Percentile:** ₹{percentile_10:,.2f} (10% of simulations ended below this value)")
-            st.markdown(f"**90th Percentile:** ₹{percentile_90:,.2f} (90% of simulations ended below this value)")
-
-            st.subheader("Distribution of Ending Portfolio Values")
-            fig = plot_distribution(ending_portfolio_values)
-            st.pyplot(fig)
-
-            st.info("Disclaimer: This is a simplified simulation and does not account for all real-world factors such as inflation, taxes, fees, and market volatility. Investment involves risk, and past performance is not indicative of future results.")
-
-    except ValueError:
-        st.error("Please enter valid numerical values for the expected return ranges.")
+st.markdown("""
+---
+**Disclaimer:** This is a simplified simulation and does not account for all real-world factors
+such as inflation, taxes, fees, and market volatility. Investment involves risk, and
+past performance is not indicative of future results.
+""") 
