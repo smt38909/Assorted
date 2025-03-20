@@ -256,7 +256,7 @@ st.markdown("""
 such as inflation, taxes, fees, and market volatility. Investment involves risk, and
 past performance is not indicative of future results.
 """) 
-=======
+
 import streamlit as st
 import numpy as np
 import pandas as pd
