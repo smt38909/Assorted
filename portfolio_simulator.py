@@ -465,4 +465,4 @@ st.markdown("""
 such as inflation, taxes, fees, and market volatility. Investment involves risk, and
 past performance is not indicative of future results.
 """) 
->>>>>>> 21624e7eb4492ee1fe7e7d5d7128565f77dee943
+
