@@ -39,15 +39,15 @@ def run_portfolio_simulation(start_value, stock_allocation, bond_allocation,
         bond_return = bond_returns[:, year]
         portfolio_return = (stock_allocation * stock_return + bond_allocation * bond_return)
         
-        # Calculate inflation-adjusted values for this year
+        # Calculate values for this year
         current_withdrawal = 0
         current_contribution = 0
         
-        # Apply contribution only before contribution_end_age
+        # Apply contribution only before contribution_end_age (no inflation adjustment)
         if year < years_till_contribution_ends:
-            current_contribution = annual_contribution * (1 + inflation_rate) ** year
+            current_contribution = annual_contribution
             
-        # Apply withdrawal only after withdrawal_start_age
+        # Apply withdrawal only after withdrawal_start_age (with inflation adjustment)
         if year >= years_till_withdrawal_starts:
             current_withdrawal = annual_withdrawal * (1 + inflation_rate) ** year
         
@@ -133,160 +133,240 @@ def plot_distribution(ending_values):
     plt.tight_layout()
     return fig
 
-# Streamlit UI
+# Change the page config to use the sidebar
 st.set_page_config(page_title="Portfolio Simulator", layout="wide")
 
-st.title("Portfolio Growth Simulator")
-st.write("""
-This tool simulates potential portfolio growth using Monte Carlo simulation. 
-Adjust the parameters below to see how different scenarios might affect your investment outcomes.
-""")
-
-# Sidebar for inputs
-with st.sidebar:
-    st.header("Portfolio Parameters")
-    
-    start_value = st.number_input("Starting Portfolio Value (₹)", 
-                                 min_value=1.0, 
-                                 value=1000000.0, 
-                                 step=100000.0,
-                                 format="%.2f")
-    
-    start_age = st.number_input("Current Age", 
-                               min_value=18, 
-                               max_value=80, 
-                               value=30)
-    
-    contribution_end_age = st.number_input("Age to Stop Contributing", 
-                                         min_value=start_age, 
-                                         max_value=100, 
-                                         value=60)
-    
-    withdrawal_start_age = st.number_input("Age to Start Withdrawing", 
-                                         min_value=start_age, 
-                                         max_value=100, 
-                                         value=60)
-    
-    target_age = st.number_input("Age to Compute Final Portfolio Value", 
-                                min_value=max(withdrawal_start_age, contribution_end_age), 
-                                max_value=100, 
-                                value=70)
-    
-    stock_percentage = st.slider("Stock Allocation (%)", 
-                               min_value=0, 
-                               max_value=100, 
-                               value=70)
-    
-    inflation_rate = st.slider("Expected Annual Inflation Rate (%)", 
-                              min_value=0.0, 
-                              max_value=10.0, 
-                              value=6.0) / 100.0
-    
-    st.header("Expense & Withdrawal Parameters")
-    current_yearly_expenses = st.number_input("Today's Yearly Expenses (₹)", 
-                                      min_value=0.0, 
-                                      value=50000.0, 
-                                      step=10000.0,
-                                      format="%.2f")
-    
-    # Calculate future withdrawal amount adjusted for inflation
-    years_till_withdrawal = withdrawal_start_age - start_age
-    future_withdrawal = current_yearly_expenses * (1 + inflation_rate) ** years_till_withdrawal
-    
-    # Display the future withdrawal amount (informational)
-    st.write(f"Projected yearly withdrawal at age {withdrawal_start_age}: {future_withdrawal:,.2f}")
-    
-    st.header("Contribution Parameters")
-    annual_contribution = st.number_input("Annual Contribution Amount (₹)", 
-                                      min_value=0.0, 
-                                      value=100000.0, 
-                                      step=10000.0,
-                                      format="%.2f")
-    
-    st.header("Return Assumptions")
-    stock_min_return = st.slider("Minimum Stock Return (%)", 
-                                min_value=-25.0, 
-                                max_value=25.0, 
-                                value=5.0) / 100.0
-    
-    stock_max_return = st.slider("Maximum Stock Return (%)", 
-                                min_value=float(stock_min_return * 100 + 1), 
-                                max_value=25.0, 
-                                value=12.0) / 100.0
-    
-    stock_mean_return = st.slider("Average Stock Return (%)",
-                                min_value=float(stock_min_return * 100),
-                                max_value=float(stock_max_return * 100),
-                                value=float((stock_min_return + stock_max_return) * 50)) / 100.0
-    
-    bond_min_return = st.slider("Minimum Bond Return (%)", 
-                                min_value=-5.0, 
-                                max_value=10.0, 
-                                value=1.0) / 100.0
-    
-    bond_max_return = st.slider("Maximum Bond Return (%)", 
-                                min_value=float(bond_min_return * 100 + 1), 
-                                max_value=15.0, 
-                                value=5.0) / 100.0
-    
-    num_simulations = st.slider("Number of Simulations", 
-                               min_value=1000, 
-                               max_value=20000, 
-                               value=10000)
-
-# Calculate parameters
-bond_percentage = 100 - stock_percentage
-num_years = target_age - start_age
-years_till_contribution_ends = contribution_end_age - start_age
-years_till_withdrawal_starts = withdrawal_start_age - start_age
-
-# Run simulation
-ending_portfolio_values = run_portfolio_simulation(
-    start_value,
-    stock_percentage / 100,
-    bond_percentage / 100,
-    stock_min_return,
-    stock_max_return,
-    stock_mean_return,
-    bond_min_return,
-    bond_max_return,
-    num_simulations,
-    num_years,
-    current_yearly_expenses,
-    annual_contribution,
-    inflation_rate,
-    years_till_contribution_ends,
-    years_till_withdrawal_starts
-)
-
-# Display results
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.pyplot(plot_distribution(ending_portfolio_values))
-
-with col2:
-    st.header("Simulation Results")
-    
-    avg_ending_value = np.mean(ending_portfolio_values)
-    median_ending_value = np.median(ending_portfolio_values)
-    percentile_10 = np.percentile(ending_portfolio_values, 10)
-    percentile_90 = np.percentile(ending_portfolio_values, 90)
-    
-    # Calculate probability of portfolio exhaustion
-    exhaustion_probability = np.mean(ending_portfolio_values <= 0) * 100
-    
-    st.metric("Average Ending Value", f"{avg_ending_value:,.2f}")
-    st.metric("Median Ending Value", f"{median_ending_value:,.2f}")
-    st.metric("10th Percentile", f"{percentile_10:,.2f}")
-    st.metric("90th Percentile", f"{percentile_90:,.2f}")
-    st.metric("Probability of Portfolio Becoming Zero", f"{exhaustion_probability:.1f}%", 
-             delta=None,
-             delta_color="inverse")
-
+# Add CSS to make tabs sticky and use system theme colors
 st.markdown("""
----
-**Disclaimer:** This is a simplified simulation and does not account for all real-world factors
-such as inflation, taxes, fees, and market volatility. Investment involves risk, and
-past performance is not indicative of future results.
-""") 
+    <style>
+        /* Make tabs fixed at the top */
+        section[data-testid="stSidebar"] {
+            z-index: 1;
+        }
+        
+        div[data-testid="stVerticalBlock"] > div:first-child {
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            background: var(--background-color);
+            padding: 4px 0px;
+        }
+        
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            height: 40px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# Remove the container wrapper since we don't need it anymore
+tab1, tab2 = st.tabs(["About", "Calculator"])
+
+# About tab content
+with tab1:
+    st.title("Portfolio Simulator")
+    
+    st.write("""
+    The typical way in which retirement computations are done is broken. Calculating the corpus you need for 
+    funding your retirement is not as simple as it is made out to be. This tool has been built to illustrate this 
+    point.
+    """)
+    
+    # Keep the header but remove the content
+    st.header("How to use this tool")
+    st.write("""
+    This portfolio simulator helps you visualize potential investment outcomes using Monte Carlo simulations.  
+    Here's a quick guide to get you started:
+    
+    **1.  Set Your Investment Goals:**
+    * **Starting Portfolio Value:** Enter the current value of your investments.
+    * **Current Age:** Input your current age.
+    * **Age to Stop Contributing:** Specify the age at which you plan to stop making contributions to your portfolio.
+    * **Age to Start Withdrawing:** Indicate the age you intend to begin making withdrawals from your portfolio, such as during retirement.
+    * **Age to Compute Final Portfolio Value:** Define the age for which you want to see the projected portfolio value.
+    
+    **2.  Define Your Investment Strategy:**
+    * **Stock Allocation (%):** Determine the percentage of your portfolio you want to allocate to stocks. The remaining percentage will be allocated to bonds.
+    * **Expected Annual Inflation Rate (%):** Enter your assumed annual inflation rate. This will be used to adjust withdrawals.
+    
+    **3.  Enter Your Financial Details:**
+    * **Today's Yearly Expenses:** Input your current annual expenses. This value will be adjusted for inflation to project future withdrawal amounts.
+    * **Annual Contribution Amount:** Specify the amount you plan to contribute to your portfolio each year.
+    
+    **4.  Define Return Assumptions:**
+    * For both stocks and bonds, set the:
+        * **Minimum Return (%):** The lowest expected annual return.
+        * **Maximum Return (%):** The highest expected annual return.
+        * **Average Return (%):** Your expected average annual return.
+    
+    **5.  Run the Simulation:**
+    * **Number of Simulations:** Choose the number of Monte Carlo simulations to run. More simulations provide a more refined view of potential outcomes.
+    
+    **6.  View the Results:**
+        * The tool will display a distribution of potential portfolio values at your target age, along with key statistics such as the median, 10th percentile, and 90th percentile values.
+        * It also provides the probability of your portfolio value becoming zero.
+    
+    **Important Considerations:**
+    * This tool provides a simplified model. It does not account for all factors that can influence investment outcomes, such as taxes, investment fees, and unpredictable market events.
+    * Consult with a financial advisor for personalized investment advice.
+    """)
+
+# Calculator tab content
+with tab2:
+    st.title("Portfolio Growth Simulator")
+    st.write("""
+    This tool simulates potential portfolio growth using Monte Carlo simulation. 
+    Adjust the parameters below to see how different scenarios might affect your investment outcomes.
+    """)
+    
+    # Sidebar for inputs
+    with st.sidebar:
+        st.header("Portfolio Parameters")
+        
+        start_value = st.number_input("Starting Portfolio Value (₹)", 
+                                     min_value=1.0, 
+                                     value=1000000.0, 
+                                     step=100000.0,
+                                     format="%.2f")
+        
+        start_age = st.number_input("Current Age", 
+                                   min_value=18, 
+                                   max_value=80, 
+                                   value=30)
+        
+        contribution_end_age = st.number_input("Age to Stop Contributing", 
+                                             min_value=start_age, 
+                                             max_value=100, 
+                                             value=60)
+        
+        withdrawal_start_age = st.number_input("Age to Start Withdrawing", 
+                                             min_value=start_age, 
+                                             max_value=100, 
+                                             value=60)
+        
+        target_age = st.number_input("Age to Compute Final Portfolio Value", 
+                                    min_value=max(withdrawal_start_age, contribution_end_age), 
+                                    max_value=100, 
+                                    value=70)
+        
+        stock_percentage = st.slider("Stock Allocation (%)", 
+                                   min_value=0, 
+                                   max_value=100, 
+                                   value=70)
+        
+        inflation_rate = st.slider("Expected Annual Inflation Rate (%)", 
+                                  min_value=0.0, 
+                                  max_value=10.0, 
+                                  value=6.0) / 100.0
+        
+        st.header("Expense & Withdrawal Parameters")
+        current_yearly_expenses = st.number_input("Today's Yearly Expenses (₹)", 
+                                          min_value=0.0, 
+                                          value=50000.0, 
+                                          step=10000.0,
+                                          format="%.2f")
+        
+        # Calculate future withdrawal amount adjusted for inflation
+        years_till_withdrawal = withdrawal_start_age - start_age
+        future_withdrawal = current_yearly_expenses * (1 + inflation_rate) ** years_till_withdrawal
+        
+        # Display the future withdrawal amount (informational)
+        st.write(f"Projected yearly withdrawal at age {withdrawal_start_age}: {future_withdrawal:,.2f}")
+        
+        st.header("Contribution Parameters")
+        annual_contribution = st.number_input("Annual Contribution Amount (₹)", 
+                                          min_value=0.0, 
+                                          value=100000.0, 
+                                          step=10000.0,
+                                          format="%.2f")
+        
+        st.header("Return Assumptions")
+        stock_min_return = st.slider("Minimum Stock Return (%)", 
+                                    min_value=-25.0, 
+                                    max_value=25.0, 
+                                    value=5.0) / 100.0
+        
+        stock_max_return = st.slider("Maximum Stock Return (%)", 
+                                    min_value=float(stock_min_return * 100 + 1), 
+                                    max_value=25.0, 
+                                    value=12.0) / 100.0
+        
+        stock_mean_return = st.slider("Average Stock Return (%)",
+                                    min_value=float(stock_min_return * 100),
+                                    max_value=float(stock_max_return * 100),
+                                    value=float((stock_min_return + stock_max_return) * 50)) / 100.0
+        
+        bond_min_return = st.slider("Minimum Bond Return (%)", 
+                                    min_value=-5.0, 
+                                    max_value=10.0, 
+                                    value=1.0) / 100.0
+        
+        bond_max_return = st.slider("Maximum Bond Return (%)", 
+                                    min_value=float(bond_min_return * 100 + 1), 
+                                    max_value=15.0, 
+                                    value=5.0) / 100.0
+        
+        num_simulations = st.slider("Number of Simulations", 
+                                   min_value=1000, 
+                                   max_value=20000, 
+                                   value=10000)
+
+    # Calculate parameters
+    bond_percentage = 100 - stock_percentage
+    num_years = target_age - start_age
+    years_till_contribution_ends = contribution_end_age - start_age
+    years_till_withdrawal_starts = withdrawal_start_age - start_age
+
+    # Run simulation
+    ending_portfolio_values = run_portfolio_simulation(
+        start_value,
+        stock_percentage / 100,
+        bond_percentage / 100,
+        stock_min_return,
+        stock_max_return,
+        stock_mean_return,
+        bond_min_return,
+        bond_max_return,
+        num_simulations,
+        num_years,
+        current_yearly_expenses,
+        annual_contribution,
+        inflation_rate,
+        years_till_contribution_ends,
+        years_till_withdrawal_starts
+    )
+
+    # Display results
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.pyplot(plot_distribution(ending_portfolio_values))
+
+    with col2:
+        st.header("Simulation Results")
+        
+        avg_ending_value = np.mean(ending_portfolio_values)
+        median_ending_value = np.median(ending_portfolio_values)
+        percentile_10 = np.percentile(ending_portfolio_values, 10)
+        percentile_90 = np.percentile(ending_portfolio_values, 90)
+        
+        # Calculate probability of portfolio exhaustion
+        exhaustion_probability = np.mean(ending_portfolio_values <= 0) * 100
+        
+        st.metric("Average Ending Value", f"{avg_ending_value:,.2f}")
+        st.metric("Median Ending Value", f"{median_ending_value:,.2f}")
+        st.metric("10th Percentile", f"{percentile_10:,.2f}")
+        st.metric("90th Percentile", f"{percentile_90:,.2f}")
+        st.metric("Probability of Portfolio Becoming Zero", f"{exhaustion_probability:.1f}%", 
+                 delta=None,
+                 delta_color="inverse")
+
+    st.markdown("""
+    ---
+    **Disclaimer:** This is a simplified simulation and does not account for all real-world factors
+    such as inflation, taxes, fees, and market volatility. Investment involves risk, and
+    past performance is not indicative of future results.
+    """) 
