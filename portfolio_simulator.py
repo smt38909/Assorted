@@ -367,6 +367,6 @@ with tab2:
     st.markdown("""
     ---
     **Disclaimer:** This is a simplified simulation and does not account for all real-world factors
-    such as taxes, fees, and behavioral idiosyncracires of humans. Investment involves risk, and
+    such as taxes, fees, and behavioral idiosyncracies of humans. Investment involves risk, and
     past performance is not indicative of future results.
     """) 
